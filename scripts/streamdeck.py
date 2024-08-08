@@ -3,6 +3,8 @@
 import rospy
 from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped
+import dynamic_reconfigure.client
+from std_srvs.srv import Empty
 
 import os
 import threading
@@ -28,6 +30,8 @@ def key_change_callback(deck, key, state):
     response = ""
 
     if state:
+        clear_costmap()
+
         if key == 0:
             response = "home"
 
@@ -45,6 +49,18 @@ def key_change_callback(deck, key, state):
 
         elif key == 1:
             response = "point_1"
+            
+            goal_msg = PoseStamped()
+            goal_msg.header.stamp = rospy.Time.now()
+            goal_msg.header.frame_id = "map"
+            goal_msg.pose.position.x = 8.5
+            goal_msg.pose.position.y = 8.775
+            goal_msg.pose.position.z = 0
+            goal_msg.pose.orientation.x = 0
+            goal_msg.pose.orientation.y = 0
+            goal_msg.pose.orientation.z = 0
+            goal_msg.pose.orientation.w = 1
+            goal_pub.publish(goal_msg)
 
         elif key == 2:
             response = "point_2"
@@ -66,9 +82,11 @@ def key_change_callback(deck, key, state):
 
         elif key == 5:
             response = "navigation"
+            client.update_configuration({"max_vel_x": 0.8, "max_trans_vel": 0.8, "acc_lim_x": 0.8, "acc_limit_trans": 0.8})
 
         elif key == 6:
             response = "followme"
+            client.update_configuration({"max_vel_x": 1.5, "max_trans_vel": 1.5, "acc_lim_x": 1.5, "acc_limit_trans": 1.5})
 
     if response:
         response_pub.publish(response)
@@ -77,8 +95,12 @@ def key_change_callback(deck, key, state):
 if __name__ == "__main__":
     rospy.init_node('stream_deck_node')
 
-    response_pub = rospy.Publisher('keypad_response', String, queue_size=1)
-    goal_pub = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=1)
+    response_pub = rospy.Publisher("keypad_response", String, queue_size=1)
+    goal_pub = rospy.Publisher("move_base_simple/goal", PoseStamped, queue_size=1)
+
+    client = dynamic_reconfigure.client.Client("/move_base/DWAPlannerROS", timeout=None, config_callback=None, description_callback=None)
+
+    clear_costmap = rospy.ServiceProxy("/move_base/clear_costmaps", Empty)
 
     streamdecks = DeviceManager().enumerate()
 
